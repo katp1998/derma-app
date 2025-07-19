@@ -1,39 +1,39 @@
 Clinical Attributes: (take values 0, 1, 2, 3, unless otherwise indicated) 
-•	1 Erythema 
-•	2 Scaling 
-•	3 definite borders 
-•	4 Itching 
-•	5 koebner phenomenon 
-•	6 polygonal papules 
-•	7 follicular papules 
-•	8 oral mucosal involvement 
-•	9 knee and elbow involvement 
-•	10 scalp involvement 
-•	11 family history (0 or 1) 
-•	34 Age 
+1 Erythema 
+    2 Scaling 
+    3 definite borders 
+    4 Itching 
+    5 koebner phenomenon 
+    6 polygonal papules 
+    7 follicular papules 
+    8 oral mucosal involvement 
+    9 knee and elbow involvement 
+    10 scalp involvement 
+    11 family history (0 or 1) 
+    34 Age 
 Histopathological Attributes: (take values 0, 1, 2, 3) 
-•	12 melanin incontinence 
-•	13 eosinophils in the infiltrate 
-•	14 PNL infiltrate 
-•	15 fibrosis of the papillary dermis 
-•	16 Exocytosis 
-•	17 Acanthosis 
-•	18 Hyperkeratosis 
-•	19 Parakeratosis 
-•	20 clubbing of the rete ridges 
-•	21 elongation of the rete ridges 
-•	22 thinning of the suprapapillary epidermis 
-•	23 spongiform pustule 
-•	24 munro microabcess 
-•	25 focal hypergranulosis 
-•	26 disappearance of the granular layer 
-•	27 vacuolisation and damage of basal layer 
-•	28 Spongiosis 
-•	29 saw-tooth appearance of retes 
-•	30 follicular horn plug 
-•	31 perifollicular parakeratosis 
-•	32 inflammatory monoluclear inflitrate 
-•	33 band-like infiltrate 
+    12 melanin incontinence 
+    13 eosinophils in the infiltrate 
+    14 PNL infiltrate 
+    15 fibrosis of the papillary dermis 
+    16 Exocytosis 
+    17 Acanthosis 
+    18 Hyperkeratosis 
+    19 Parakeratosis 
+    20 clubbing of the rete ridges 
+    21 elongation of the rete ridges 
+    22 thinning of the suprapapillary epidermis 
+    23 spongiform pustule 
+    24 munro microabcess 
+    25 focal hypergranulosis 
+    26 disappearance of the granular layer 
+    27 vacuolisation and damage of basal layer 
+    28 Spongiosis 
+    29 saw-tooth appearance of retes 
+    30 follicular horn plug
+    31 perifollicular parakeratosis 
+    32 inflammatory monoluclear inflitrate 
+    33 band-like infiltrate 
  
 This data set contains 34 attributes. 35th is the class label, i.e., the disease name. The names and id numbers of the patients were removed from the database. 
  
@@ -61,3 +61,105 @@ Additional marks will be given for:
 
 •	APA referencing [5 Marks]
 •	Creativity, clarity, above and beyond class materials, work is comparable to real-world solutions, and complexity. [15 Marks]
+
+-------------------------------------------------------
+How to go about?
+
+1. Data Preparation (Applies to All Models)
+Load dataset – likely from UCI repository: Dermatology dataset
+
+Handle missing data – age has missing values (?). Decide whether to impute or remove.
+
+Split data into:
+
+Clinical features (attributes 1–11)
+
+Histopathological features (attributes 12–33)
+
+Age (attribute 34)
+
+Class label (attribute 35)
+
+Normalize/standardize where necessary.
+
+2. Model 1: Gradient Descent for Age → Disease (Regression)
+Goal: Predict class label from only the age attribute.
+
+Approach:
+
+Implement your own Gradient Descent algorithm (don’t use sklearn.linear_model).
+
+Treat it as multi-class logistic regression or use one-vs-all strategy.
+
+Convert class labels to one-hot vectors.
+
+Tune learning rate, iterations.
+
+Report loss over time and final model weights.
+
+3. Model 2: Random Forest (Clinical + Histopathological)
+Goal: Use all features (excluding Age) to classify disease.
+
+Approach:
+
+Use RandomForestClassifier from sklearn.ensemble.
+
+Train on full feature set (clinical + histopathological).
+
+Perform train-test split (e.g., 80/20), report accuracy, confusion matrix.
+
+Report hyperparameters: number of trees, max depth, etc.
+
+Optional: Feature importance chart.
+
+4. Model 3: kNN Classification (Clinical + Histopathological Separately)
+Goal: Run two kNN classifiers:
+
+One using clinical attributes
+
+One using histopathological attributes
+
+Approach:
+
+Use KNeighborsClassifier.
+
+Tune k using cross-validation.
+
+Report accuracy, F1-score, confusion matrix for each.
+
+Compare performance of clinical vs histo-only features.
+
+5. Model 4 & 5: Clustering (Unsupervised Learning)
+Goal: Test if features can naturally separate into 6 disease types.
+
+Approach:
+
+Use KMeans and Agglomerative Clustering.
+
+Set number of clusters = 6 (given).
+
+Evaluate using:
+
+Adjusted Rand Index (ARI)
+
+Silhouette Score
+
+Visualize using PCA or t-SNE for 2D projection.
+
+Compare clustering performance to actual labels.
+
+6. Final Section – Analysis and Comparison
+Compare:
+
+Classification vs. Clustering accuracy
+
+Strengths/limits of supervised vs. unsupervised
+
+Comment on:
+
+Feature effectiveness
+
+Disease similarity
+
+Real-world applicability
+
