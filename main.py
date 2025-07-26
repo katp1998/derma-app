@@ -27,6 +27,7 @@ histopath_cols = [
     'Melanin', 'Eosinophils', 'PNL', 'Fibrosis', 'Exocytosis', 'Acanthosis', 'Hyperkeratosis', 'Parakeratosis', 'Clubbing', 'Elongation', 'Thinning', 'Spongiform', 'Munro', 'Focal', 'Disappearance', 'Vacuolisation', 'Spongiosis', 'Retes', 'Follicular Horn', 'Perifollicular', 'Inflammatory', 'Band-like'
 ]
 
+# @HELPER FUNCTIONS:
 # @desc: ensure LabelEncoder mapping and disease_map are in sync:
 def update_disease_mapping(label_encoder):
     disease_number_to_name = {
@@ -41,9 +42,22 @@ def update_disease_mapping(label_encoder):
     # map encoded label to disease name using the number-to-name mapping:
     disease_map = {i: disease_number_to_name[int(disease_number)] for i, disease_number in enumerate(label_encoder.classes_)}
 
+# @desc: convert symptom text arrays to feature vectors
+def symptoms_to_features(symptom_list, feature_names):
+    features = np.zeros(len(feature_names))
+    for i, name in enumerate(feature_names):
+        if name == 'Age':
+            age_val = next((s.split(":")[1] for s in symptom_list if s.startswith("Age:")), None)
+            if age_val is not None:
+                features[i] = float(age_val)
+            else:
+                features[i] = 0
+        else:
+            features[i] = 1 if name in symptom_list else 0
+    return features.reshape(1, -1)
+
 # @desc: prep and load the dataset:
 def load_and_preprocess():  
-    # Read the CSV file with tab separator:
     df = pd.read_csv('dermatology.csv', sep='\t')  
     df.replace('?', np.nan, inplace=True)
     df.dropna(inplace=True)
@@ -80,8 +94,9 @@ def load_and_preprocess():
     X_age = df[['Age']].values
     return X_age, X_all, X_clinical, X_histopath, X_clinical_scaled, X_histopath_scaled, X_all_scaled, y, le
 
+# ASSESSMENT MODELS:
 # Determine the type of disease based on the patient’s Age. Use gradient descent (GD) to build your regression model (model 1). 
-def model1_gradient_descent(X_age, y, label_encoder=None, new_age=None):
+def model1_gradient_descent(X_age, y, new_age=None):
     no_of_patients = X_age.shape[0]
     no_of_diseases = len(np.unique(y))
 
@@ -160,81 +175,65 @@ def model1_gradient_descent(X_age, y, label_encoder=None, new_age=None):
 
     return result
 
-# @desc: convert symptom text arrays to feature vectors
-def symptoms_to_features(symptom_list, feature_names):
-    features = np.zeros(len(feature_names))
-    for i, name in enumerate(feature_names):
-        if name == 'Age':
-            age_val = next((s.split(":")[1] for s in symptom_list if s.startswith("Age:")), None)
-            if age_val is not None:
-                features[i] = float(age_val)
-            else:
-                features[i] = 0
-        else:
-            features[i] = 1 if name in symptom_list else 0
-    return features.reshape(1, -1)
-
 # Use random forest on the clinical as well as histopathological attributes to classify the disease type (model2). 
-def model2_random_forest(clinical_symptoms_text, histopath_symptoms_text, labels, label_encoder):
-    X_age, X_all, X_clinical, X_histopath, X_clinical_scaled, X_histopath_scaled, X_all_scaled, y, le = load_and_preprocess()
-
+def model2_random_forest(clinical_symptoms_text, histopath_symptoms_text, X_all, X_clinical, X_histopath, y):
     n_estimators_list = [10, 20, 30, 50, 75, 100]
-    loss_clin = []
-    loss_hist = []
+    loss_clinical = []
+    loss_histopath = []
     loss_all = []
     
     for n_est in n_estimators_list:
         # Clinical model:
-        rf_clin_temp = RandomForestClassifier(n_estimators=n_est, random_state=42)
-        rf_clin_temp.fit(X_clinical, y)
-        y_pred_clin_temp = rf_clin_temp.predict(X_clinical)
-        loss_clin.append(1 - accuracy_score(y, y_pred_clin_temp))
+        clinical_temp = RandomForestClassifier(n_estimators=n_est, random_state=42)
+        clinical_temp.fit(X_clinical, y)
+        y_pred_clinical_temp = clinical_temp.predict(X_clinical)
+        loss_clinical.append(1 - accuracy_score(y, y_pred_clinical_temp))
         
         # Histopathological model:
-        rf_hist_temp = RandomForestClassifier(n_estimators=n_est, random_state=42)
-        rf_hist_temp.fit(X_histopath, y)
-        y_pred_hist_temp = rf_hist_temp.predict(X_histopath)
-        loss_hist.append(1 - accuracy_score(y, y_pred_hist_temp))
+        histopath_temp = RandomForestClassifier(n_estimators=n_est, random_state=42)
+        histopath_temp.fit(X_histopath, y)
+        y_pred_histopath_temp = histopath_temp.predict(X_histopath)
+        loss_histopath.append(1 - accuracy_score(y, y_pred_histopath_temp))
         
         # Combined model:
-        rf_all_temp = RandomForestClassifier(n_estimators=n_est, random_state=42)
-        rf_all_temp.fit(X_all, y)
-        y_pred_all_temp = rf_all_temp.predict(X_all)
+        all_temp = RandomForestClassifier(n_estimators=n_est, random_state=42)
+        all_temp.fit(X_all, y)
+        y_pred_all_temp = all_temp.predict(X_all)
         loss_all.append(1 - accuracy_score(y, y_pred_all_temp))
 
-    rf_clin = RandomForestClassifier(n_estimators=100, random_state=42)
-    rf_clin.fit(X_clinical, y)
-    rf_hist = RandomForestClassifier(n_estimators=100, random_state=42)
-    rf_hist.fit(X_histopath, y)
-    rf_all = RandomForestClassifier(n_estimators=100, random_state=42)
-    rf_all.fit(X_all, y)
+    clinical = RandomForestClassifier(n_estimators=100, random_state=42)
+    clinical.fit(X_clinical, y)
+    histopath = RandomForestClassifier(n_estimators=100, random_state=42)
+    histopath.fit(X_histopath, y)
+    all = RandomForestClassifier(n_estimators=100, random_state=42)
+    all.fit(X_all, y)
 
     # accuracy:
-    y_pred_clin = rf_clin.predict(X_clinical)
-    y_pred_hist = rf_hist.predict(X_histopath)
-    y_pred_all = rf_all.predict(X_all)
+    y_pred_clinical = clinical.predict(X_clinical)
+    y_pred_histopath = histopath.predict(X_histopath)
+    y_pred_all = all.predict(X_all)
     
-    acc_clin = accuracy_score(y, y_pred_clin)
-    acc_hist = accuracy_score(y, y_pred_hist)
-    acc_all = accuracy_score(y, y_pred_all)
+    accuracy_clinical = accuracy_score(y, y_pred_clinical)
+    accuracy_histopath = accuracy_score(y, y_pred_histopath)
+    accuracy_all = accuracy_score(y, y_pred_all)
     
-    print(f"Training Accuracy (Clinical): {acc_clin:.4f}")
-    print(f"Training Accuracy (Histopathological): {acc_hist:.4f}")
-    print(f"Training Accuracy (All features): {acc_all:.4f}")
+    print(f"Training Accuracy (Clinical): {accuracy_clinical:.4f}")
+    print(f"Training Accuracy (Histopathological): {accuracy_histopath:.4f}")
+    print(f"Training Accuracy (All): {accuracy_all:.4f}")
 
     clinical_features = symptoms_to_features(clinical_symptoms_text, clinical_cols)
     histopath_features = symptoms_to_features(histopath_symptoms_text, histopath_cols)
-    pred_clin = rf_clin.predict(clinical_features)[0]
-    pred_hist = rf_hist.predict(histopath_features)[0]
+    pred_clinical = clinical.predict(clinical_features)[0]
+    pred_histopath = histopath.predict(histopath_features)[0]
 
     # remove 'Age' from clinical_features to avoid duplication -- 'Age' is at the end of clinical_cols and all_feature_cols:
     clinical_features_no_age = clinical_features[0, :-1]
     combined_features = np.concatenate([clinical_features_no_age, histopath_features[0], clinical_features[0, -1:]])  # add Age at the end
     combined_features = combined_features.reshape(1, -1)
-    pred_combined = rf_all.predict(combined_features)[0]
+    pred_combined = all.predict(combined_features)[0]
 
-    disease_clin_name = disease_map[pred_clin]
-    disease_hist_name = disease_map[pred_hist]
+    disease_clin_name = disease_map[pred_clinical]
+    disease_hist_name = disease_map[pred_histopath]
     disease_combined_name = disease_map[pred_combined]
 
     print(f"Predicted disease (clinical symptoms): {disease_clin_name}")
@@ -244,20 +243,20 @@ def model2_random_forest(clinical_symptoms_text, histopath_symptoms_text, labels
     # loss function:
     plt.figure(figsize=(12, 4))
     plt.subplot(1, 2, 1)
-    plt.plot(n_estimators_list, loss_clin, 'b-o', label='Clinical Features', linewidth=2, markersize=6)
-    plt.plot(n_estimators_list, loss_hist, 'r-s', label='Histopathological Features', linewidth=2, markersize=6)
+    plt.plot(n_estimators_list, loss_clinical, 'b-o', label='Clinical Features', linewidth=2, markersize=6)
+    plt.plot(n_estimators_list, loss_histopath, 'r-s', label='Histopathological Features', linewidth=2, markersize=6)
     plt.plot(n_estimators_list, loss_all, 'g-^', label='All Features', linewidth=2, markersize=6)
     plt.xlabel('Number of Estimators')
     plt.ylabel('Misclassification Rate (Loss)')
     plt.title('Random Forest Loss Function')
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.ylim(0, max(max(loss_clin), max(loss_hist), max(loss_all)) * 1.1)
+    plt.ylim(0, max(max(loss_clinical), max(loss_histopath), max(loss_all)) * 1.1)
 
     # confusion matrices:
     plt.subplot(1, 2, 2)
-    cm_all = confusion_matrix(y, y_pred_all)
-    sns.heatmap(cm_all, annot=True, fmt='d', cmap='Blues')
+    matrix_all = confusion_matrix(y, y_pred_all)
+    sns.heatmap(matrix_all, annot=True, fmt='d', cmap='Blues')
     plt.title('Confusion Matrix - All Features')
     plt.xlabel('Predicted')
     plt.ylabel('Actual')
@@ -267,19 +266,19 @@ def model2_random_forest(clinical_symptoms_text, histopath_symptoms_text, labels
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
-    cm_clin = confusion_matrix(y, y_pred_clin)
+    cm_clin = confusion_matrix(y, y_pred_clinical)
     sns.heatmap(cm_clin, annot=True, fmt='d', cmap='Blues', ax=axes[0])
     axes[0].set_title('Confusion Matrix - Clinical Features')
     axes[0].set_xlabel('Predicted')
     axes[0].set_ylabel('Actual')
     
-    cm_hist = confusion_matrix(y, y_pred_hist)
+    cm_hist = confusion_matrix(y, y_pred_histopath)
     sns.heatmap(cm_hist, annot=True, fmt='d', cmap='Blues', ax=axes[1])
     axes[1].set_title('Confusion Matrix - Histopathological Features')
     axes[1].set_xlabel('Predicted')
     axes[1].set_ylabel('Actual')
     
-    sns.heatmap(cm_all, annot=True, fmt='d', cmap='Blues', ax=axes[2])
+    sns.heatmap(matrix_all, annot=True, fmt='d', cmap='Blues', ax=axes[2])
     axes[2].set_title('Confusion Matrix - All Features')
     axes[2].set_xlabel('Predicted')
     axes[2].set_ylabel('Actual')
@@ -290,26 +289,24 @@ def model2_random_forest(clinical_symptoms_text, histopath_symptoms_text, labels
     return disease_clin_name, disease_hist_name, disease_combined_name
 
 # Use kNN on the clinical attributes and histopathological attributes to classify the disease type and report your accuracy (model3). 
-def model3_knn(clinical_symptoms_text, histopath_symptoms_text, labels, label_encoder):
-    X_age, X_all, X_clinical, X_histopath, X_clinical_scaled, X_histopath_scaled, X_all_scaled, y, le = load_and_preprocess()
-
+def model3_knn(clinical_symptoms_text, histopath_symptoms_text, X_all, X_clinical, X_histopath, X_clinical_scaled, X_histopath_scaled, X_all_scaled, y):
     k_neighbors_list = [1, 3, 5, 7, 9, 11]
-    loss_clin = []
-    loss_hist = []
+    loss_clinical = []
+    loss_histopath = []
     loss_all = []
     
     for k in k_neighbors_list:
         # Clinical model:
-        knn_clin_temp = KNeighborsClassifier(n_neighbors=k)
-        knn_clin_temp.fit(X_clinical_scaled, y)
-        y_pred_clin_temp = knn_clin_temp.predict(X_clinical_scaled)
-        loss_clin.append(1 - accuracy_score(y, y_pred_clin_temp))
+        knn_clinical_temp = KNeighborsClassifier(n_neighbors=k)
+        knn_clinical_temp.fit(X_clinical_scaled, y)
+        y_pred_clinical_temp = knn_clinical_temp.predict(X_clinical_scaled)
+        loss_clinical.append(1 - accuracy_score(y, y_pred_clinical_temp))
         
         # Histopathological model:
-        knn_hist_temp = KNeighborsClassifier(n_neighbors=k)
-        knn_hist_temp.fit(X_histopath_scaled, y)
-        y_pred_hist_temp = knn_hist_temp.predict(X_histopath_scaled)
-        loss_hist.append(1 - accuracy_score(y, y_pred_hist_temp))
+        knn_histopath_temp = KNeighborsClassifier(n_neighbors=k)
+        knn_histopath_temp.fit(X_histopath_scaled, y)
+        y_pred_histopath_temp = knn_histopath_temp.predict(X_histopath_scaled)
+        loss_histopath.append(1 - accuracy_score(y, y_pred_histopath_temp))
         
         # Combined model:
         knn_all_temp = KNeighborsClassifier(n_neighbors=k)
@@ -318,46 +315,46 @@ def model3_knn(clinical_symptoms_text, histopath_symptoms_text, labels, label_en
         loss_all.append(1 - accuracy_score(y, y_pred_all_temp))
 
     # k=5:
-    knn_clin = KNeighborsClassifier(n_neighbors=5)
-    knn_clin.fit(X_clinical_scaled, y)
-    knn_hist = KNeighborsClassifier(n_neighbors=5)
-    knn_hist.fit(X_histopath_scaled, y)
+    knn_clinical = KNeighborsClassifier(n_neighbors=5)
+    knn_clinical.fit(X_clinical_scaled, y)
+    knn_histopath = KNeighborsClassifier(n_neighbors=5)
+    knn_histopath.fit(X_histopath_scaled, y)
     knn_all = KNeighborsClassifier(n_neighbors=5)
     knn_all.fit(X_all_scaled, y)
 
-    y_pred_clin = knn_clin.predict(X_clinical_scaled)
-    y_pred_hist = knn_hist.predict(X_histopath_scaled)
+    y_pred_clin = knn_clinical.predict(X_clinical_scaled)
+    y_pred_hist = knn_histopath.predict(X_histopath_scaled)
     y_pred_all = knn_all.predict(X_all_scaled)
     
-    acc_clin = accuracy_score(y, y_pred_clin)
-    acc_hist = accuracy_score(y, y_pred_hist)
-    acc_all = accuracy_score(y, y_pred_all)
+    accuracy_clinical = accuracy_score(y, y_pred_clin)
+    accuracy_histopath = accuracy_score(y, y_pred_hist)
+    accuracy_all = accuracy_score(y, y_pred_all)
     
-    print(f"Training Accuracy (Clinical): {acc_clin:.4f}")
-    print(f"Training Accuracy (Histopathological): {acc_hist:.4f}")
-    print(f"Training Accuracy (All features): {acc_all:.4f}")
+    print(f"Training Accuracy (Clinical): {accuracy_clinical:.4f}")
+    print(f"Training Accuracy (Histopathological): {accuracy_histopath:.4f}")
+    print(f"Training Accuracy (All features): {accuracy_all:.4f}")
 
     clinical_features = symptoms_to_features(clinical_symptoms_text, clinical_cols)
     histopath_features = symptoms_to_features(histopath_symptoms_text, histopath_cols)
     
-    scaler_clin = StandardScaler()
-    scaler_hist = StandardScaler()
+    scaler_clinical = StandardScaler()
+    scaler_histopath = StandardScaler()
     scaler_all = StandardScaler()
     
-    scaler_clin.fit(X_clinical)
-    scaler_hist.fit(X_histopath)
+    scaler_clinical.fit(X_clinical)
+    scaler_histopath.fit(X_histopath)
     scaler_all.fit(X_all)
     
-    clinical_features_scaled = scaler_clin.transform(clinical_features)
-    histopath_features_scaled = scaler_hist.transform(histopath_features)
+    clinical_features_scaled = scaler_clinical.transform(clinical_features)
+    histopath_features_scaled = scaler_histopath.transform(histopath_features)
     
     clinical_features_no_age = clinical_features[0, :-1]
     combined_features = np.concatenate([clinical_features_no_age, histopath_features[0], clinical_features[0, -1:]])
     combined_features = combined_features.reshape(1, -1)
     combined_features_scaled = scaler_all.transform(combined_features)
     
-    pred_clin = knn_clin.predict(clinical_features_scaled)[0]
-    pred_hist = knn_hist.predict(histopath_features_scaled)[0]
+    pred_clin = knn_clinical.predict(clinical_features_scaled)[0]
+    pred_hist = knn_histopath.predict(histopath_features_scaled)[0]
     pred_combined = knn_all.predict(combined_features_scaled)[0]
 
     # disease_map to get the disease name:
@@ -372,20 +369,20 @@ def model3_knn(clinical_symptoms_text, histopath_symptoms_text, labels, label_en
     # loss function:
     plt.figure(figsize=(12, 4))
     plt.subplot(1, 2, 1)
-    plt.plot(k_neighbors_list, loss_clin, 'b-o', label='Clinical Features', linewidth=2, markersize=6)
-    plt.plot(k_neighbors_list, loss_hist, 'r-s', label='Histopathological Features', linewidth=2, markersize=6)
+    plt.plot(k_neighbors_list, loss_clinical, 'b-o', label='Clinical Features', linewidth=2, markersize=6)
+    plt.plot(k_neighbors_list, loss_histopath, 'r-s', label='Histopathological Features', linewidth=2, markersize=6)
     plt.plot(k_neighbors_list, loss_all, 'g-^', label='All Features', linewidth=2, markersize=6)
     plt.xlabel('Number of Neighbors (k)')
     plt.ylabel('Misclassification Rate (Loss)')
     plt.title('KNN Loss Function')
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.ylim(0, max(max(loss_clin), max(loss_hist), max(loss_all)) * 1.1)
+    plt.ylim(0, max(max(loss_clinical), max(loss_histopath), max(loss_all)) * 1.1)
 
     # confusion matrices:
     plt.subplot(1, 2, 2)
-    cm_all = confusion_matrix(y, y_pred_all)
-    sns.heatmap(cm_all, annot=True, fmt='d', cmap='Blues')
+    matrix_all = confusion_matrix(y, y_pred_all)
+    sns.heatmap(matrix_all, annot=True, fmt='d', cmap='Blues')
     plt.title('Confusion Matrix - All Features')
     plt.xlabel('Predicted')
     plt.ylabel('Actual')
@@ -395,19 +392,19 @@ def model3_knn(clinical_symptoms_text, histopath_symptoms_text, labels, label_en
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
     
-    cm_clin = confusion_matrix(y, y_pred_clin)
-    sns.heatmap(cm_clin, annot=True, fmt='d', cmap='Blues', ax=axes[0])
+    matrix_clin = confusion_matrix(y, y_pred_clin)
+    sns.heatmap(matrix_clin, annot=True, fmt='d', cmap='Blues', ax=axes[0])
     axes[0].set_title('Confusion Matrix - Clinical Features')
     axes[0].set_xlabel('Predicted')
     axes[0].set_ylabel('Actual')
     
-    cm_hist = confusion_matrix(y, y_pred_hist)
-    sns.heatmap(cm_hist, annot=True, fmt='d', cmap='Blues', ax=axes[1])
+    matrix_hist = confusion_matrix(y, y_pred_hist)
+    sns.heatmap(matrix_hist, annot=True, fmt='d', cmap='Blues', ax=axes[1])
     axes[1].set_title('Confusion Matrix - Histopathological Features')
     axes[1].set_xlabel('Predicted')
     axes[1].set_ylabel('Actual')
     
-    sns.heatmap(cm_all, annot=True, fmt='d', cmap='Blues', ax=axes[2])
+    sns.heatmap(matrix_all, annot=True, fmt='d', cmap='Blues', ax=axes[2])
     axes[2].set_title('Confusion Matrix - All Features')
     axes[2].set_xlabel('Predicted')
     axes[2].set_ylabel('Actual')
@@ -418,39 +415,147 @@ def model3_knn(clinical_symptoms_text, histopath_symptoms_text, labels, label_en
     return disease_clin_name, disease_hist_name, disease_combined_name
 
 # use two different clustering algorithms and see how well these attributes can determine the disease type (model4 and model5).
-def model4_kmeans(X_all_scaled, y, le):  # Model 4: KMeans clustering on all features
-    kmeans = KMeans(n_clusters=len(np.unique(y)), random_state=42, n_init=10)  # Create KMeans with number of clusters = number of classes
-    clusters_kmeans = kmeans.fit_predict(X_all_scaled)  # Fit and predict clusters
-    ari = adjusted_rand_score(y, clusters_kmeans)  # Calculate Adjusted Rand Index
-    print("Model 4 (KMeans clustering) ARI:", ari)  # Print ARI
-    print("Contingency table (KMeans clusters vs. true disease type):")  # Print header for contingency table
-    ct = pd.crosstab(clusters_kmeans, le.inverse_transform(y))  # Create contingency table
-    print(ct.head(10))  # Print first 10 rows of the table
-    return ari  # Return ARI
+def model4_kmeans(X_all_scaled, y):    
+    best_score = -1
+    best_clusters = 0
+    best_n = None
+    ari_scores = []
+    
+    for n_clusters in range(2, 8):
+        # KMeans clustering on features only -- without disease labels
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+        predicted_clusters = kmeans.fit_predict(X_all_scaled)
+        score = adjusted_rand_score(y, predicted_clusters)
+        ari_scores.append(score)
+        
+        if score > best_score:
+            best_score = score
+            best_clusters = predicted_clusters
+            best_n = n_clusters
+    
+        print(f"{n_clusters} clusters → ARI: {score:.3f}")
+    
+    print(f"\nBest clustering uses {best_n} clusters (ARI = {best_score:.3f})")
+    
+    print("\nCluster vs. Disease Table:")
+    table = pd.crosstab(best_clusters, [disease_map[i] for i in y])
+    print(table)
 
-def model5_agglomerative(X_all_scaled, y, le):  # Model 5: Agglomerative clustering on all features
-    agg = AgglomerativeClustering(n_clusters=len(np.unique(y)))  # Create Agglomerative Clustering
-    clusters_agg = agg.fit_predict(X_all_scaled)  # Fit and predict clusters
-    ari = adjusted_rand_score(y, clusters_agg)  # Calculate Adjusted Rand Index
-    print("Model 5 (Agglomerative clustering) ARI:", ari)  # Print ARI
-    print("Contingency table (Agglomerative clusters vs. true disease type):")  # Print header for contingency table
-    ct = pd.crosstab(clusters_agg, le.inverse_transform(y))  # Create contingency table
-    print(ct.head(10))  # Print first 10 rows of the table
-    return ari  # Return ARI
+    plt.plot(range(2, 8), ari_scores, marker='o')
+    plt.title("Cluster Quality (ARI) by Cluster Count")
+    plt.xlabel("Number of Clusters")
+    plt.ylabel("ARI Score")
+    plt.grid(True)
+    plt.show()
 
-def main():  # Main function to run all models
+    return best_score, best_n, best_clusters
+
+def model5_agglomerative(X_all_scaled, y):    
+    best_score = -1
+    best_clusters = 0
+    best_n = None
+    ari_scores = []
+    
+    for n_clusters in range(2, 8):
+        # Agglomerative clustering on features only -- no disease labels used
+        agg = AgglomerativeClustering(n_clusters=n_clusters)
+        predicted_clusters = agg.fit_predict(X_all_scaled)
+        score = adjusted_rand_score(y, predicted_clusters)
+        ari_scores.append(score)
+        
+        if score > best_score:
+            best_score = score
+            best_clusters = predicted_clusters
+            best_n = n_clusters
+    
+        print(f"{n_clusters} clusters → ARI: {score:.3f}")
+
+    print(f"\nBest clustering uses {best_n} clusters (ARI = {best_score:.3f})")
+    
+    print("\nCluster vs. Disease Table:")
+    table = pd.crosstab(best_clusters, [disease_map[i] for i in y])
+    print(table)
+    
+    plt.subplot(1, 3, 1)
+    plt.plot(range(2, 8), ari_scores, marker='o', color='green')
+    plt.title("Agglomerative Clustering Quality (ARI) by Cluster Count")
+    plt.xlabel("Number of Clusters")
+    plt.ylabel("ARI Score")
+    plt.grid(True)
+    
+    plt.subplot(1, 3, 2)
+    cm = confusion_matrix(y, best_clusters)
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Greens')
+    plt.title("Clusters vs Actual Diseases")
+    plt.xlabel("Predicted Cluster")
+    plt.ylabel("Actual Disease")
+    
+    plt.subplot(1, 3, 3)
+    cluster_sizes = [np.sum(best_clusters == i) for i in range(best_n)]
+    plt.bar(range(best_n), cluster_sizes, color='green', alpha=0.7)
+    plt.title("Cluster Sizes")
+    plt.xlabel("Cluster ID")
+    plt.ylabel("Number of Samples")
+    
+    plt.tight_layout()
+    plt.show()
+
+    return best_score, best_n, best_clusters
+
+def main():
     X_age, X_all, X_clinical, X_histopath, X_clinical_scaled, X_histopath_scaled, X_all_scaled, y, le = load_and_preprocess()
 
-    # Example usage of the new model2_random_forest function with symptom text arrays
-    example_clinical = ["Erythema", "Scaling", "Itching", "Age:45"]
-    example_histopath = ["Melanin", "Acanthosis", "Hyperkeratosis"]
-    
-    print("=== RANDOM FOREST MODEL ===")
-    model2_random_forest(example_clinical, example_histopath, y, le)
-    
-    print("=== KNN MODEL ===")
-    model3_knn(example_clinical, example_histopath, y, le)
+    print("-"*50)
+    print("GRADIENT DESCENT MODEL")
+    print("-"*50)
+    model1_gradient_descent(X_age, y, new_age=45)
 
-if __name__ == "__main__":  # If this script is run directly
-    main()  # Call the main function
+    # # ex. usage of the new model2_random_forest function with symptom text arrays
+    # example_clinical = ["Erythema", "Scaling", "Itching", "Age:45"]
+    # example_histopath = ["Melanin", "Acanthosis", "Hyperkeratosis"]
+    
+    # print("-"*50)
+    # print("RANDOM FOREST MODEL")
+    # print("-"*50)
+    # model2_random_forest(example_clinical, example_histopath, X_all, X_clinical, X_histopath, y)
+    
+    # print("-"*50)
+    # print("KNN MODEL")
+    # print("-"*50)
+    # model3_knn(example_clinical, example_histopath, X_all, X_clinical, X_histopath, X_clinical_scaled, X_histopath_scaled, X_all_scaled, y)
+    
+    # print("-"*50)
+    # print("KMEANS CLUSTERING MODEL")
+    # print("-"*50)
+    # kmeans_ari, kmeans_n, kmeans_clusters = model4_kmeans(X_all_scaled, y)
+    
+    # print("\n" + "-"*50)
+    # print("AGGLOMERATIVE CLUSTERING MODEL")
+    # print("-"*50)
+    # agg_ari, agg_n, agg_clusters = model5_agglomerative(X_all_scaled, y)
+    
+    # print("\n" + "-"*50)
+    # print("CLUSTERING COMPARISON")
+    # print("-"*50)
+    # print(f"KMeans Clustering: {kmeans_n} clusters, ARI = {kmeans_ari:.3f}")
+    # print(f"Agglomerative Clustering: {agg_n} clusters, ARI = {agg_ari:.3f}")
+    
+    # if kmeans_ari > agg_ari:
+    #     print(f"\nKMeans performs better (ARI difference: {kmeans_ari - agg_ari:.3f})")
+    # elif agg_ari > kmeans_ari:
+    #     print(f"\nAgglomerative Clustering performs better (ARI difference: {agg_ari - kmeans_ari:.3f})")
+    # else:
+    #     print(f"\nBoth algorithms perform equally well")
+    
+    # print(f"\nCluster Alignment Comparison:")
+    # print(f"KMeans optimal clusters: {kmeans_n}")
+    # print(f"Agglomerative optimal clusters: {agg_n}")
+    
+    # if kmeans_n == agg_n:
+    #     print("Both algorithms found the same optimal number of clusters")
+    # else:
+    #     print("Algorithms found different optimal numbers of clusters")
+
+if __name__ == "__main__":
+    main()
     
