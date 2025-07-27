@@ -1,3 +1,5 @@
+Github link: https://github.com/katp1998/derma-app 
+
 Clinical Attributes: (take values 0, 1, 2, 3, unless otherwise indicated) 
 1 Erythema 
     2 Scaling 
