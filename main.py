@@ -421,7 +421,7 @@ def model4_kmeans(X_all_scaled, y):
     best_n = None
     ari_scores = []
     
-    for n_clusters in range(2, 8):
+    for n_clusters in range(1, 8):
         # KMeans clustering on features only -- without disease labels
         kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
         predicted_clusters = kmeans.fit_predict(X_all_scaled)
@@ -441,7 +441,7 @@ def model4_kmeans(X_all_scaled, y):
     table = pd.crosstab(best_clusters, [disease_map[i] for i in y])
     print(table)
 
-    plt.plot(range(2, 8), ari_scores, marker='o')
+    plt.plot(range(1, 8), ari_scores, marker='o')
     plt.title("Cluster Quality (ARI) by Cluster Count")
     plt.xlabel("Number of Clusters")
     plt.ylabel("ARI Score")
@@ -456,7 +456,7 @@ def model5_agglomerative(X_all_scaled, y):
     best_n = None
     ari_scores = []
     
-    for n_clusters in range(2, 8):
+    for n_clusters in range(1, 8):
         # Agglomerative clustering on features only -- no disease labels used
         agg = AgglomerativeClustering(n_clusters=n_clusters)
         predicted_clusters = agg.fit_predict(X_all_scaled)
@@ -477,7 +477,7 @@ def model5_agglomerative(X_all_scaled, y):
     print(table)
     
     plt.subplot(1, 3, 1)
-    plt.plot(range(2, 8), ari_scores, marker='o', color='green')
+    plt.plot(range(1, 8), ari_scores, marker='o', color='green')
     plt.title("Agglomerative Clustering Quality (ARI) by Cluster Count")
     plt.xlabel("Number of Clusters")
     plt.ylabel("ARI Score")
@@ -510,51 +510,51 @@ def main():
     print("-"*50)
     model1_gradient_descent(X_age, y, new_age=45)
 
-    # # ex. usage of the new model2_random_forest function with symptom text arrays
-    # example_clinical = ["Erythema", "Scaling", "Itching", "Age:45"]
-    # example_histopath = ["Melanin", "Acanthosis", "Hyperkeratosis"]
+    # eg. symptom text arrays
+    example_clinical = ["Erythema", "Scaling", "Itching", "Age:45"]
+    example_histopath = ["Melanin", "Acanthosis", "Hyperkeratosis"]
     
-    # print("-"*50)
-    # print("RANDOM FOREST MODEL")
-    # print("-"*50)
-    # model2_random_forest(example_clinical, example_histopath, X_all, X_clinical, X_histopath, y)
+    print("-"*50)
+    print("RANDOM FOREST MODEL")
+    print("-"*50)
+    model2_random_forest(example_clinical, example_histopath, X_all, X_clinical, X_histopath, y)
     
-    # print("-"*50)
-    # print("KNN MODEL")
-    # print("-"*50)
-    # model3_knn(example_clinical, example_histopath, X_all, X_clinical, X_histopath, X_clinical_scaled, X_histopath_scaled, X_all_scaled, y)
+    print("-"*50)
+    print("KNN MODEL")
+    print("-"*50)
+    model3_knn(example_clinical, example_histopath, X_all, X_clinical, X_histopath, X_clinical_scaled, X_histopath_scaled, X_all_scaled, y)
     
-    # print("-"*50)
-    # print("KMEANS CLUSTERING MODEL")
-    # print("-"*50)
-    # kmeans_ari, kmeans_n, kmeans_clusters = model4_kmeans(X_all_scaled, y)
+    print("-"*50)
+    print("KMEANS CLUSTERING MODEL")
+    print("-"*50)
+    kmeans_ari, kmeans_n, kmeans_clusters = model4_kmeans(X_all_scaled, y)
     
-    # print("\n" + "-"*50)
-    # print("AGGLOMERATIVE CLUSTERING MODEL")
-    # print("-"*50)
-    # agg_ari, agg_n, agg_clusters = model5_agglomerative(X_all_scaled, y)
+    print("\n" + "-"*50)
+    print("AGGLOMERATIVE CLUSTERING MODEL")
+    print("-"*50)
+    agg_ari, agg_n, agg_clusters = model5_agglomerative(X_all_scaled, y)
     
-    # print("\n" + "-"*50)
-    # print("CLUSTERING COMPARISON")
-    # print("-"*50)
-    # print(f"KMeans Clustering: {kmeans_n} clusters, ARI = {kmeans_ari:.3f}")
-    # print(f"Agglomerative Clustering: {agg_n} clusters, ARI = {agg_ari:.3f}")
+    print("\n" + "-"*50)
+    print("CLUSTERING COMPARISON")
+    print("-"*50)
+    print(f"KMeans Clustering: {kmeans_n} clusters, ARI = {kmeans_ari:.3f}")
+    print(f"Agglomerative Clustering: {agg_n} clusters, ARI = {agg_ari:.3f}")
     
-    # if kmeans_ari > agg_ari:
-    #     print(f"\nKMeans performs better (ARI difference: {kmeans_ari - agg_ari:.3f})")
-    # elif agg_ari > kmeans_ari:
-    #     print(f"\nAgglomerative Clustering performs better (ARI difference: {agg_ari - kmeans_ari:.3f})")
-    # else:
-    #     print(f"\nBoth algorithms perform equally well")
+    if kmeans_ari > agg_ari:
+        print(f"\nKMeans performs better (ARI difference: {kmeans_ari - agg_ari:.3f})")
+    elif agg_ari > kmeans_ari:
+        print(f"\nAgglomerative Clustering performs better (ARI difference: {agg_ari - kmeans_ari:.3f})")
+    else:
+        print(f"\nBoth algorithms perform equally well")
     
-    # print(f"\nCluster Alignment Comparison:")
-    # print(f"KMeans optimal clusters: {kmeans_n}")
-    # print(f"Agglomerative optimal clusters: {agg_n}")
+    print(f"\nCluster Alignment Comparison:")
+    print(f"KMeans optimal clusters: {kmeans_n}")
+    print(f"Agglomerative optimal clusters: {agg_n}")
     
-    # if kmeans_n == agg_n:
-    #     print("Both algorithms found the same optimal number of clusters")
-    # else:
-    #     print("Algorithms found different optimal numbers of clusters")
+    if kmeans_n == agg_n:
+        print("Both algorithms found the same optimal number of clusters")
+    else:
+        print("Algorithms found different optimal numbers of clusters")
 
 if __name__ == "__main__":
     main()
